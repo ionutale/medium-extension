@@ -4,6 +4,8 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
+ * 2022
+ *
  * @flow
  */
 
@@ -11,45 +13,45 @@ import "prototypes/Date"
 import "prototypes/Number"
 import "prototypes/Array"
 
-import addDrawer from "_/addDrawer"
-import toggleDrawer from "_/toggleDrawer"
-import theme from "_/theme"
-import bodyHasClass from "_/bodyHasClass"
-
 import LoadingView from "@/LoadingView"
 import LoginView from "@/LoginView"
 import DailyView from "@/DailyView"
 import MonthlyView from "@/MonthlyView"
 import EnrollView from "@/EnrollView"
 import AboutView from "@/AboutView"
+import ErrorView from "@/ErrorView"
+import OfflineView from "@/OfflineView"
+
+import ThemeHandler from "h/ThemeHandler"
+import ASCIIHandler from "h/ASCIIHandler"
+import DrawerHandler from "h/DrawerHandler"
 
 import getRate from "services/getRate"
-
-import Theme, { negate } from "./enums/Theme"
-import View from "./enums/View"
-
-import ThemeHandler from "./handlers/ThemeHandler"
+import View from "e/View"
 
 import fakeRes from "data/valid"
 import fakeRes2 from "data/enroll-error"
 
-import ascii from "bundle-text:a/text.ascii"
-
 class App {
+  #themeHandler = new ThemeHandler()
+  #asciiHandler = new ASCIIHandler()
+  #drawerHandler = new DrawerHandler()
+  #viewHandler
+  #currencyHandler
+
   #state = View.LOADING
-  #root = document.getElementById("root")
   #duration = 250 //ms
   #currency = "USD"
   #rate = 1
-  #theme = Theme.LIGHT
-  #themeHandler = new ThemeHandler()
+  #root
   #data
 
-  constructor() {
-    theme.get() && this.#setTheme(theme.get())
+  constructor(rootElement) {
+    this.#root = rootElement
+    this.#themeHandler.init()
+    this.#asciiHandler.print()
 
     this.#renderView(View.LOADING)
-    this.#asciiPrint()
 
     /**
      * TESTS
@@ -63,25 +65,9 @@ class App {
       try {
         this.#initializeApp(res.authenticated, res?.data)
       } catch (error) {
-        console.error(error)
+        this.setState(View.ERROR)
       }
     })
-
-    // this.setState(View.ABOUT)
-  }
-
-  #setTheme(theme) {
-    if (theme === Theme.LIGHT && bodyHasClass("dark")) {
-      document.body.classList.remove("dark")
-      this.#theme = Theme.LIGHT
-    } else if (theme === Theme.DARK && !bodyHasClass("dark")) {
-      document.body.classList.add("dark")
-      this.#theme = Theme.DARK
-    }
-  }
-
-  #asciiPrint() {
-    console.log(ascii)
   }
 
   async #initializeApp(authenticated, data = {}) {
@@ -89,8 +75,10 @@ class App {
 
     if (authenticated && data?.error) this.setState(View.MPP_ENROLL)
     else if (authenticated && !data?.error) {
-      addDrawer(this.#data.author)
+      this.#drawerHandler.addDrawer(this.#data.author)
       this.#setGlobalEventHandlers()
+      this.#themeHandler.setEventListeners()
+      this.#drawerHandler.setEventListeners()
       this.setState(View.DAILY)
     } else this.setState(View.LOGIN)
   }
@@ -128,6 +116,10 @@ class App {
         ? LoginView()
         : state === View.LOADING
         ? LoadingView()
+        : state === View.ERROR
+        ? ErrorView()
+        : state === View.OFFLINE
+        ? OfflineView()
         : state === View.ABOUT
         ? AboutView()
         : state === View.MPP_ENROLL
@@ -219,23 +211,6 @@ class App {
   }
 
   #setGlobalEventHandlers() {
-    const toggleButtons = document.querySelectorAll("[data-toggle-drawer]")
-    toggleButtons.forEach(button =>
-      button.addEventListener("click", () => {
-        toggleDrawer()
-      })
-    )
-
-    const themeButtons = document.querySelectorAll("[data-toggle-theme]")
-    themeButtons.forEach(button =>
-      button.addEventListener("click", () => {
-        const negated = negate(this.#theme)
-
-        this.#setTheme(negated)
-        theme.set(negated)
-      })
-    )
-
     const aboutButton = document.querySelectorAll("[data-about-trigger]")
     aboutButton.forEach(button => button.addEventListener("click", () => this.setState(View.ABOUT)))
   }
@@ -247,7 +222,7 @@ class App {
       const currencyOptions = document.querySelector(".custom-select > .options")
 
       const toggleButton = document.querySelector(".menu-toggle")
-      toggleButton.addEventListener("click", () => toggleDrawer())
+      toggleButton.addEventListener("click", () => this.#drawerHandler.toggleDrawer())
 
       const currencies = document.querySelectorAll(".custom-select > .options > .option")
 
