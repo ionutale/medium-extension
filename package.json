@@ -30,7 +30,7 @@
     "background": "./background/"
   },
   "devDependencies": {
-    "@parcel/config-webextension": "^2.4.1",
+    "@parcel/config-webextension": "^2.15.4",
     "@parcel/reporter-bundle-analyzer": "^2.4.1",
     "@parcel/resolver-glob": "^2.4.1",
     "@parcel/transformer-inline-string": "^2.4.1",
